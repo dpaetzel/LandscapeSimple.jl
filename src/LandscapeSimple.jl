@@ -1,9 +1,12 @@
 module LandscapeSimple
 
 using Random
+using Sobol
 using QuasiMonteCarlo
 
-export mkscale_discrete, mkscale_minmax, configurations, gethp, sobols
+export mkscale_discrete, mkscale_minmax, configurations, gethp, sobols, sobols!
+
+include("sobols.jl")
 
 """
     Rescaler(xmin, xmax, xminnew, xmaxnew)
@@ -85,69 +88,6 @@ function gethp(space, v)
 end
 
 """
-Get \$2^m\$ scrambled Sobol' numbers for the given dimensionality.
-
-Note that we actually generate \$2^{m+1}\$ numbers using `Sobol.jl` and then
-skip the first \$2^m\$ to account for the fact that the numbers are otherwise
-not balanced due to `Sobol.jl` not starting sequences with \$(0)^d\$.
-
-# Arguments
-
-- `rng::AbstractRNG`: RNG used for scrambling the Sobol' sequence.
-
-# Example
-
-```
-julia> UnicodePlots.scatterplot(eachrow(sobols(2))...)
-     ┌────────────────────────────────────────┐
-   1 │⡀⠀⠂⠁⠄⡐⢀⠠⠀⠈⠂⠀⡀⠄⠁⢀⠐⠈⠀⠠⠠⠈⠐⠀⠠⠁⠀⠄⡀⢁⠈⠠⢀⠀⠐⠂⠀⠁⠂⡀│
-     │⠐⠈⠐⠀⠠⠀⠀⠄⣀⠁⠈⠠⢀⠀⠈⠂⠀⠁⠂⠄⠄⠀⠂⠁⠂⠐⣀⠠⠀⠀⠁⠀⡀⠄⠁⠠⡐⠈⠀⠠│
-     │⡀⠢⠀⠂⠈⠄⢀⠁⠠⠀⠀⣁⠀⠀⠠⠐⠠⠀⠊⠀⠈⠐⠀⠌⢀⠀⠄⠈⡀⠠⠂⠀⠀⣈⠀⠀⠐⠀⠄⠐│
-     │⠀⠀⡂⠨⠀⢀⠂⠀⠁⠠⡂⠀⠀⠡⠀⠀⢃⠠⠀⠈⠀⠆⢐⠀⠀⠠⠈⠀⠐⡀⠀⠌⠀⠀⢂⠁⠀⠄⡘⠀│
-     │⠁⠀⢀⠁⠄⡀⠐⠠⠀⡈⠀⠀⠂⠄⠡⠐⠀⠈⡀⠐⠠⠈⡀⠀⠐⢁⠀⠄⠂⢀⠌⠠⠐⠀⡀⠄⢀⠁⠀⠂│
-     │⠐⡈⠀⠀⠐⠀⠠⠄⡂⠀⠈⠠⠐⡀⠀⡂⠀⠁⢀⠁⠁⠀⠀⢁⠂⠀⢐⠠⠄⠀⠀⢀⠂⠤⠀⠈⠀⠈⠀⢐│
-     │⡀⠁⠐⢀⠈⠁⡀⠠⠠⠀⠀⠂⡀⠠⠂⠀⠀⠁⠐⠠⠁⡀⠂⠈⡀⠀⠄⠄⢀⠂⠐⠄⢀⠐⠀⠠⠃⠈⢀⠀│
-     │⠀⠐⠄⡁⠀⠠⠂⠀⠀⢐⠆⠀⠀⠈⡀⢀⠱⢀⠁⠀⠀⢁⠠⠂⠀⡁⠀⠀⠐⠄⢀⠁⠀⠀⠰⠀⠈⡀⠔⠀│
-     │⠁⢀⠠⠀⢁⡀⠈⠐⠀⠂⠠⠀⠁⠂⠠⠀⠀⡀⠄⠐⡈⠀⠄⡀⠈⠐⠀⠂⠁⠠⠄⠐⠈⠀⠄⢂⠠⢀⠀⠁│
-     │⠐⡄⠀⠀⠠⠀⠀⠂⠡⠀⢀⠒⠈⠄⠀⠅⠀⡀⢀⠁⡀⠀⠀⢠⠁⠀⠌⠐⠀⠀⠀⠀⠅⠒⠀⠀⡀⢀⠀⠨│
-     │⢀⠀⠈⢐⠀⠈⠄⠐⠈⢀⠀⠀⠄⢐⠂⠠⠀⢀⠈⠄⠐⡀⠁⠀⠄⡈⠀⠂⠠⠁⠐⡂⠠⠀⠁⠠⠁⡀⠀⠄│
-     │⠀⠀⠅⠂⡀⠠⠁⢀⠀⠐⠅⠀⠀⡀⠂⢀⠡⠐⠀⢀⠠⠐⠠⠁⠀⠂⠀⡀⠈⠄⠐⢀⠀⠀⠨⡀⠀⠂⠌⡀│
-     │⠡⠐⠠⠀⢀⠂⠈⡀⠀⠂⠈⢀⠁⠀⠠⠄⠀⠂⠄⡀⡀⠀⠄⠂⡈⠐⠀⢀⠁⠐⠄⠀⠈⡀⠁⢀⠠⠐⠀⠠│
-     │⠠⡀⠀⠄⠂⠀⠀⠂⠩⠀⠀⡂⠈⠀⢀⠠⢀⠀⠠⠂⠈⠀⠄⢠⠀⠀⠍⠐⠀⠀⡀⠀⠁⢐⠀⠐⠄⠀⡀⠂│
-   0 │⠂⠀⠄⢐⠀⠡⠁⠐⠀⡀⠠⠈⠀⠐⡀⠀⠅⢀⠀⠐⠀⡂⠠⠀⠐⢀⠀⠂⠈⡈⢀⠂⠀⠁⠄⠄⠀⡀⠨⠀│
-     └────────────────────────────────────────┘
-     ⠀0⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀1⠀
-```
-"""
-function sobols(rng, dims; m=9)
-    # Sobol sequence only has nice properties if generating `2^m` points for
-    # some `m`.
-    N = 2^m
-    # This is fixed for the Sobol' sequence.
-    b = 2
-
-    # Draw `2N` and throw away the first `N` to work around `Sobol.jl` not
-    # including `(0)^d`; see
-    # https://github.com/JuliaMath/Sobol.jl/issues/31#issue-1328916662
-    # (QuasiMonteCarlo.jl is based on Sobol.jl).
-    sample_sobol =
-        QuasiMonteCarlo.sample(2 * N, dims, SobolSample(; R=NoRand()), Float32)
-    # Throw away first `N` points (see comment above on `(0)^dims` not being
-    # included).
-    sample_sobol = sample_sobol[:, (N + 1):end]
-
-    # TODO Consider to additionally do Digital Shift Scrambling like SciPy.
-    # `pad=32` is the default as of 2024-06-26.
-    # `MatousekScramble` is likely what SciPy means by linear matrix scramble (LMS).
-    sample_sobol_scrambled =
-        randomize(sample_sobol, MatousekScramble(; base=b, pad=32, rng=rng))
-
-    return sample_sobol_scrambled
-end
-
-sobols(dims; m=9) = sobols(Random.Xoshiro(31), dims; m=m)
-
-"""
 Generate `2^m` configurations from the given space using the Sobol' sequence as
 a source for quasi random numbers.
 
@@ -156,9 +96,18 @@ a source for quasi random numbers.
 - `rng::AbstractRNG`: RNG used for scrambling the Sobol' sequence.
 """
 function configurations(rng::AbstractRNG, space; m=9)
-    return gethp.(Ref(space), eachcol(sobols(rng, length(space); m=m)))
+    sobols_ = sobols(rng, length(space); m=m)
+    return configurations(sobols_, space)
 end
 
 configurations(space; m=9) = configurations(Random.Xoshiro(31), space; m=m)
+
+"""
+Having a sequence of low discrepancy vectors in ``[0, 1]^d`` (e.g. Sobol'
+numbers), generate a configuration from the given d-dimensional space for each.
+"""
+function configurations(ldns, space)
+    return gethp.(Ref(space), eachcol(ldns))
+end
 
 end # module LandscapeSimple

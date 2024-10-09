@@ -8,7 +8,7 @@ hps_vary = (;
 )
 
 # Generate `2^m` configurations deterministically.
-m = 5
+m = 7
 configs = configurations(Random.Xoshiro(31), hps_vary; m=m)
 
 # If you have UnicodePlots available:
