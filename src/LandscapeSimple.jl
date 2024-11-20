@@ -84,9 +84,12 @@ function mkscale_geo(xmin, xmax; base=10)
         @warn "mkscale_geo was used with negative `xmin`, I hope you know " *
               "what you're doing …"
     end
-    log_max = log(base, xmax - xmin)
     _scale_geo(x) =
-        xmin + (xmax - xmin) * ((base^(x * log_max) - 1) / (base^log_max - 1))
+        if base == 1
+            xmin + x * (xmax - xmin)
+        else
+            xmin + (xmax - xmin) * (base^x - 1) / (base - 1)
+        end
     return _scale_geo
 end
 
