@@ -4,6 +4,8 @@ using Random
 # Note that we use a `NamedTuple`s instead of `Dict`s to keep the order.
 hps_vary = (;
     a=mkscale_discrete([3, 5, 8, 12, 17, 23]),
+    c=mkscale_geo(0.0f0, 2.0f0),
+    d=Int ∘ ceil ∘ mkscale_geo(0.0f0, 2.0f0),
     b=mkscale_minmax(1.0f-3, 5.0f-2),
 )
 
@@ -28,6 +30,7 @@ try
 catch e
     if e isa ArgumentError
         println("Skipping StatsBase/UnicodePlots stuff")
+        println(configs)
     else
         rethrow()
     end

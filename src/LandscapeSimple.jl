@@ -4,7 +4,8 @@ using Random
 using Sobol
 using QuasiMonteCarlo
 
-export mkscale_discrete, mkscale_minmax, configurations, gethp, sobols, sobols!
+export mkscale_discrete,
+    mkscale_geo, mkscale_minmax, configurations, gethp, sobols, sobols!
 
 include("sobols.jl")
 
@@ -72,6 +73,21 @@ function mkscale_discrete(vals::AbstractVector)
         end
     end
     return _scale_discrete
+end
+
+"""
+Generate a transformation that transforms a number in \$[0, 1]\$ to a geometric
+progression between `xmin` and `xmax` with the given `base`.
+"""
+function mkscale_geo(xmin, xmax; base=10)
+    if xmin < 0
+        @warn "mkscale_geo was used with negative `xmin`, I hope you know " *
+              "what you're doing …"
+    end
+    log_max = log(base, xmax - xmin)
+    _scale_geo(x) =
+        xmin + (xmax - xmin) * ((base^(x * log_max) - 1) / (base^log_max - 1))
+    return _scale_geo
 end
 
 # Note that since `sample_sobol` and `sample_sobol_scrambled` are deterministic,
