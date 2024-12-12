@@ -56,7 +56,8 @@ end
 Generate a transformation that transforms a number in \$[0, 1]\$ to the interval
 `[xmin, xmax]`.
 """
-mkscale_minmax(xmin, xmax) = Rescaler(0.0f0, 1.0f0, xmin, xmax)
+mkscale_minmax(xmin::T, xmax::T) where {T<:Number} =
+    Rescaler(zero(T), one(T), xmin, xmax)
 
 """
 Generate a transformation that transforms a number in \$[0, 1]\$ to the given set
