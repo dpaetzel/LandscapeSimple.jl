@@ -108,3 +108,15 @@ The Sobol' sequence has nice properties but only if you adhere to a few rules.
 Most importantly, you have to use *all of the first $2^n$ elements* for the
 nicest properties. This seems to be especially important for discrete spaces.
 Read about the Sobol' sequence before relying on this code.
+
+
+## Open points/TODOs
+
+
+- [ ] Allow to provide `Float64` to `mkscale_minmax` to get `Float64` out
+
+  Right now the underlying Sobol' sequence is hardcoded to `Float32` since what
+  it was originally intended to be used for was `Float32`. This means that the
+  numbers resulting from `mkscale_minmax` (as well as `mkscale_geo` but for that
+  function this issue is currently not made explicit) only can have a `Float32`
+  resolution which may not always be what you want.

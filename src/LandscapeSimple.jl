@@ -55,9 +55,13 @@ end
 """
 Generate a transformation that transforms a number in \$[0, 1]\$ to the interval
 `[xmin, xmax]`.
+
+Note that since the underlying Sobol' numbers are currently always `Float32`,
+the result will be a `Float32` as well. To make that explicit, we force the
+inputs to be `Float32` as well.
 """
-mkscale_minmax(xmin::T, xmax::T) where {T<:Number} =
-    Rescaler(zero(T), one(T), xmin, xmax)
+mkscale_minmax(xmin::Float32, xmax::Float32) =
+    Rescaler(zero(Float32), one(Float32), xmin, xmax)
 
 """
 Generate a transformation that transforms a number in \$[0, 1]\$ to the given set
