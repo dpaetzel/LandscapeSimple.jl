@@ -96,16 +96,27 @@ Sample a Sobol' sequence into a preallocated matrix.
 function _sobols!(out::AbstractMatrix{T}) where {T<:AbstractFloat}
     dims, N = size(out)
     seq = Sobol.SobolSeq(dims)
-    # Draw `2N` and throw away the first `N` to work around `Sobol.jl` not
-    # including `(0)^d`; see
-    # https://github.com/JuliaMath/Sobol.jl/issues/31#issue-1328916662
-    # (QuasiMonteCarlo.jl is based on Sobol.jl).
+    # `Sobol.jl` does not include `(0)^d` but this invalidates the digital net
+    # property. The common practice to work around that is to draw `2N` and
+    # throw away the first `N` Sobol' points. While this is OK for low `N`, it
+    # is overly wasteful for larger `N`. This is addressed as well by this (as
+    # of 2025-03-21 open) PR: https://github.com/JuliaMath/Sobol.jl/pull/35 .
     #
-    # Also, see
+    # See https://github.com/JuliaMath/Sobol.jl/issues/31#issue-1328916662
+    # (QuasiMonteCarlo.jl is based on Sobol.jl) and
     # https://github.com/JuliaMath/Sobol.jl/blob/685cec3fde77dce494c208f2de36c89f438254f6/src/Sobol.jl#L77
-    skip(seq, N)
-    for x in eachcol(out)
-        Sobol.next!(seq, x)
+    #
+    # My solution here is to simply do what the PR does and include `(0)^d`.
+    # Since the sequence is scrambled anyways, this should not introduce any
+    # weirdness due to the zeroes (to cite from previous links, “But as Owen's
+    # paper shows (Figure 1), an even better solution is to scramble the
+    # points.”).
+    for (idx, x) in enumerate(eachcol(out))
+        if idx == 1
+            x .= zeros(length(x))
+        else
+            Sobol.next!(seq, x)
+        end
     end
     return out
 end
