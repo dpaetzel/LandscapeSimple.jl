@@ -4,9 +4,9 @@ using Random
 # Note that we use a `NamedTuple`s instead of `Dict`s to keep the order.
 hps_vary = (;
     a=mkscale_discrete([3, 5, 8, 12, 17, 23]),
-    c=mkscale_geo(0.0f0, 2.0f0),
-    d=Int ∘ ceil ∘ mkscale_geo(0.0f0, 2.0f0),
-    b=mkscale_minmax(1.0f-3, 5.0f-2),
+    c=mkscale_geo(0.0, 2.0),
+    d=Int ∘ ceil ∘ mkscale_geo(0.0f0, 10.0f0),
+    b=mkscale_minmax(1.0e-3, 5.0e-2),
 )
 
 # Generate `2^m` configurations deterministically.

@@ -33,7 +33,7 @@ julia> UnicodePlots.scatterplot(eachrow(sobols(2))...)
      ⠀0⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀1⠀
 ```
 """
-function sobols(rng, dims; m=9)
+function sobols(rng, dims, ::Type{T}=Float64; m=9) where {T<:AbstractFloat}
     # Sobol sequence only has nice properties if generating `2^m` points for
     # some `m`.
     N = 2^m
@@ -49,7 +49,7 @@ function sobols(rng, dims; m=9)
     # This is the default for the Matoušek scramble.
     pad = 32
 
-    out = Matrix{Float32}(undef, dims, N)
+    out = Matrix{T}(undef, dims, N)
     bitarray = Array{Int,3}(undef, pad, N, dims)
     sobols!(rng, out, bitarray)
 
