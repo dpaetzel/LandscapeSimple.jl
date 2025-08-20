@@ -237,135 +237,107 @@ using Test
     end
 end
 
-# --- Minimal mock "scales" for testing ---------------------------------------
-
-# Callable scale: returns a tagged value so we can see which scale was used.
-callable_scale(tag) = u -> (tag, u)  # returns (which_scale, local_u)
-
-# Object with a `.transform` method:
-struct ObjScale
-    tag::Symbol
-    transform
-end
-ObjScale(tag) = ObjScale(tag, x -> (tag, x))
-(transform::ObjScale)(u) = error("should not call as a function")
-
-# Utility to extract tag from mix output (first element of tuple)
-get_tag(x) = x[1]
-get_u(x) = x[2]
-
 # --- Tests --------------------------------------------------------------------
 
 @testset "mkscale_mix" begin
     # 1) Basic selection by proportions, with normalisation
     @testset "bin selection & normalisation" begin
         scales = [
-            0.2 => callable_scale(:A),
-            0.5 => ObjScale(:B),
-            0.3 => callable_scale(:C),
+            # These scales do not overlap so we can test below.
+            0.2 => mkscale_const(0.031313),
+            0.5 => mkscale_minmax(0.1, 0.6),
+            0.3 => mkscale_geo(0.8, 2.5),
         ]
         mix = mkscale_mix(scales; normalize=true)
 
         # Representative points inside each bin (using p cumulative: 0.2, 0.7, 1.0)
-        @test get_tag(mix(0.00)) === :A
-        @test get_tag(mix(0.199999999)) === :A  # just below first edge
-        @test get_tag(mix(0.200000001)) === :B
-        @test get_tag(mix(0.699999999)) === :B
-        @test get_tag(mix(0.700000001)) === :C
-        @test get_tag(mix(0.999999999)) === :C
+        @test mix.transform(0.00) === 0.031313
+        @test mix.transform(0.199999999) === 0.031313 # just below first edge
+        @test mix.transform(0.200000001) >= 0.1
+        @test mix.transform(0.699999999) >= 0.1
+        @test mix.transform(0.699999999) <= 0.6
+        @test mix.transform(0.700000001) >= 0.8
+        @test mix.transform(0.700000001) <= 2.5
+        @test mix.transform(0.999999999) >= 0.8
+        @test mix.transform(0.999999999) <= 2.5
 
         # Right edge inclusivity: last bin includes u == 1.0
-        @test get_tag(mix(1.0)) === :C
+        @test mix.transform(1.0) >= 0.8
+        @test mix.transform(1.0) <= 2.5
     end
 
     # 2) Within-bin local rescaling is correct (v = (u - l)/(u - l))
     @testset "within-bin rescaling" begin
-        scales = [0.5 => callable_scale(:L), 0.5 => callable_scale(:R)]
+        scales =
+            [0.5 => mkscale_minmax(0.0, 1.0), 0.5 => mkscale_minmax(0.0, 1.0)]
         mix = mkscale_mix(scales)  # edges: [0.5, 1.0]
 
         # Midpoints of each bin should map to v ≈ 0.5
-        tagL, vL = mix(0.25)
-        @test tagL === :L
-        @test isapprox(vL, 0.5; atol=1e-12)
-
-        tagR, vR = mix(0.75)
-        @test tagR === :R
-        @test isapprox(vR, 0.5; atol=1e-12)
+        @test isapprox(mix.transform(0.25), 0.5; atol=1e-12)
+        @test isapprox(mix.transform(0.75), 0.5; atol=1e-12)
 
         # Left edge maps to v = 0, right bin left edge maps to v = 0
-        _, v0 = mix(0.0)
-        @test isapprox(v0, 0.0; atol=1e-12)
-        _, vR0 = mix(0.5)
-        @test isapprox(vR0, 0.0; atol=1e-12)
+        @test isapprox(mix.transform(0.0), 0.0; atol=1e-12)
+        @test isapprox(mix.transform(0.5), 0.0; atol=1e-12)
 
         # Values extremely close to 1 map to last bin with v < 1
-        _, vTop = mix(1.0 - eps(Float64))
-        @test vTop < 1.0
-    end
-
-    # 3) Callable vs .transform dispatch both work
-    @testset "callable and .transform both supported" begin
-        scales = [0.3 => callable_scale(:F), 0.7 => ObjScale(:T)]
-        mix = mkscale_mix(scales)
-
-        @test get_tag(mix(0.1)) === :F    # first component (callable)
-        @test get_tag(mix(0.9)) === :T    # second component (.transform)
+        @test mix.transform(1.0 - eps(Float64)) < 1.0
     end
 
     # 4) Normalise=false requires sum≈1, otherwise error
     @testset "normalise flag / sum≈1 enforcement" begin
-        scales_ok = [0.25 => callable_scale(:X), 0.75 => callable_scale(:Y)]
+        scales_ok = [0.25 => mkscale_const(0.1), 0.75 => mkscale_const(0.2)]
         @testset "sum exactly 1" begin
             mix_ok = mkscale_mix(scales_ok; normalize=false)
-            @test get_tag(mix_ok(0.2)) === :X
-            @test get_tag(mix_ok(0.8)) === :Y
+            @test mix_ok.transform(0.2) === 0.1
+            @test mix_ok.transform(0.8) === 0.2
         end
 
-        scales_bad = [0.25 => callable_scale(:X), 0.80 => callable_scale(:Y)] # sum=1.05
+        scales_bad = [0.25 => mkscale_const(0.1), 0.80 => mkscale_const(0.2)] # sum=1.05
         @test_throws AssertionError mkscale_mix(scales_bad; normalize=false)
     end
 
     # 5) Proportion validation (non-positive and non-finite)
     @testset "invalid proportions" begin
-        @test_throws AssertionError mkscale_mix([0.0 => callable_scale(:A)])
+        @test_throws AssertionError mkscale_mix([0.0 => mkscale_const(0.1)])
         @test_throws AssertionError mkscale_mix([
-            -0.1 => callable_scale(:A),
-            1.1 => callable_scale(:B),
+            -0.1 => mkscale_const(0.1),
+            1.1 => mkscale_const(0.2),
         ])
         @test_throws AssertionError mkscale_mix([
-            NaN => callable_scale(:A),
-            1.0 => callable_scale(:B),
+            NaN => mkscale_const(0.1),
+            1.0 => mkscale_const(0.2),
         ])
     end
 
     # 6) Approximate frequency check over a uniform grid (not Sobol’ specific)
     @testset "empirical proportions over grid" begin
         scales = [
-            0.2 => callable_scale(:A),
-            0.5 => callable_scale(:B),
-            0.3 => callable_scale(:C),
+            0.2 => mkscale_const(0.1),
+            0.5 => mkscale_const(0.2),
+            0.3 => mkscale_const(0.3),
         ]
         mix = mkscale_mix(scales)
 
         N = 10_000
-        counts = Dict(:A => 0, :B => 0, :C => 0)
+        counts = Dict(0.1 => 0, 0.2 => 0, 0.3 => 0)
         for k in 0:(N - 1)
             u = (k + 0.5) / N  # midpoints
-            counts[get_tag(mix(u))] += 1
+            counts[mix.transform(u)] += 1
         end
         # Expect close to target proportions within a small tolerance
-        @test isapprox(counts[:A] / N, 0.2; atol=5e-3)
-        @test isapprox(counts[:B] / N, 0.5; atol=5e-3)
-        @test isapprox(counts[:C] / N, 0.3; atol=5e-3)
+        @test isapprox(counts[0.1] / N, 0.2; atol=5e-3)
+        @test isapprox(counts[0.2] / N, 0.5; atol=5e-3)
+        @test isapprox(counts[0.3] / N, 0.3; atol=5e-3)
     end
 
     # 7) Boundary and clamping behaviour
     @testset "boundary handling" begin
-        scales = [0.9 => callable_scale(:M), 0.1 => callable_scale(:N)]
+        scales = [0.9 => mkscale_const(0.1), 0.1 => mkscale_const(0.4)]
         mix = mkscale_mix(scales)
 
-        @test get_tag(mix(0.0)) === :M
-        @test get_tag(mix(nextfloat(0.9))) === :N   # just over the first edge
-        @test get_tag(mix(1.0)) === :N              # exact 1.0 -> last bin
+        @test mix.transform(0.0) === 0.1
+        @test mix.transform(nextfloat(0.9)) === 0.4   # just over the first edge
+        @test mix.transform(1.0) === 0.4              # exact 1.0 -> last bin
     end
 end

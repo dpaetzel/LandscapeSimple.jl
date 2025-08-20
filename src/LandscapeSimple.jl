@@ -134,10 +134,6 @@ function mkscale_geo(xmin::T, xmax::T; base=10) where {T<:Real}
     return TypedScale(T, _scale_geo)
 end
 
-# Helper: Call either `scale.transform(u)` or `scale(u)`.
-_transform_with(sc, u) =
-    hasproperty(sc, :transform) ? getproperty(sc, :transform)(u) : sc(u)
-
 """
     mkscale_mix(scales; atol=1e-12, normalize=true)
 
@@ -162,7 +158,11 @@ julia> mix = mkscale_mix(scales)
 julia> y = mix(0.1234)
 ```
 """
-function mkscale_mix(scales; atol::Real=1e-12, normalize::Bool=true)
+function mkscale_mix(
+    scales::Vector{P};
+    atol::Real=1e-12,
+    normalize::Bool=true,
+) where {T,P<:Pair{<:Real,<:TypedScale{T}}}
     @assert !isempty(scales) "mkscale_mix requires at least one component"
 
     # Extract and validate proportions.
@@ -227,10 +227,10 @@ function mkscale_mix(scales; atol::Real=1e-12, normalize::Bool=true)
         # Map u into local [0,1).
         v = (clamp(u64, l, r) - l) / w
         v = min(max(v, 0.0), 1.0 - eps(Float64))
-        return _transform_with(scs[i], v)
+        return scs[i].transform(v)
     end
 
-    return _scale_mix
+    return TypedScale(T, _scale_mix)
 end
 
 # Note that since `sample_sobol` and `sample_sobol_scrambled` are deterministic,
