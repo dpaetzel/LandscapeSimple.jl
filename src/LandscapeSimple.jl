@@ -9,6 +9,7 @@ import Base: ∘
 export mkscale_const,
     mkscale_discrete,
     mkscale_geo,
+    mkscale_log,
     mkscale_minmax,
     mkscale_mix,
     configurations,
@@ -132,6 +133,27 @@ function mkscale_geo(xmin::T, xmax::T; base=10) where {T<:Real}
     # This should work but for now let's just require that types are uniform.
     # common_type = promote_type(typeof.((1, 1.0, 1.0f0))...)
     return TypedScale(T, _scale_geo)
+end
+
+"""
+    mkscale_log(xmin, xmax; biaslow=1.0)
+
+Construct a scaling function that maps a Sobol'/quasi-random draw `x ∈ [0,1]` to
+a value in `[xmin, xmax]` on a log scale.
+
+The mapping is log-uniform: small and large values are equally likely in
+log-space.
+
+The optional exponent `biaslow > 1` biases samples toward the lower end of the
+range; `biaslow` < 1 biases toward the upper end; `biaslow = 1` is unbiased
+log-uniform.
+"""
+function mkscale_log(xmin::T, xmax::T; biaslow=1.0) where {T<:Real}
+    function _mkscale_log(x::T)
+        return xmin * (xmax / xmin)^(x^biaslow)
+    end
+
+    return TypedScale(T, _mkscale_log)
 end
 
 """
