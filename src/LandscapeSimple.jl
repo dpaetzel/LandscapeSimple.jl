@@ -6,8 +6,14 @@ using QuasiMonteCarlo
 
 import Base: ∘
 
-export mkscale_discrete,
-    mkscale_geo, mkscale_minmax, mkscale_mix, configurations, sobols, sobols!
+export mkscale_const,
+    mkscale_discrete,
+    mkscale_geo,
+    mkscale_minmax,
+    mkscale_mix,
+    configurations,
+    sobols,
+    sobols!
 
 include("sobols.jl")
 
@@ -78,6 +84,8 @@ function ∘(f, scale::TypedScale{T}) where {T<:Real}
         return TypedScale(Any, f ∘ scale.transform)
     end
 end
+
+mkscale_const(x::T) where {T<:Real} = TypedScale(T, _ -> x)
 
 """
 Generate a transformation that transforms a number in \$[0, 1]\$ to the interval
