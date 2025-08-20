@@ -3,34 +3,40 @@ using Random
 
 # Note that we use a `NamedTuple`s instead of `Dict`s to keep the order.
 hps_vary = (;
-    a=mkscale_discrete([3, 5, 8, 12, 17, 23]),
-    c=mkscale_geo(0.0, 2.0),
-    d=Int ∘ ceil ∘ mkscale_geo(0.0f0, 10.0f0),
-    b=mkscale_minmax(1.0e-3, 5.0e-2),
+    a=mkscale_discrete([1.0, 2.0, 4.0]),
+    b=mkscale_minmax(1.0, 5.0),
+    c=mkscale_geo(0.0, 3.0),
+    d=ceil ∘ mkscale_geo(0.0, 4.0),
+    e=mkscale_mix([0.2 => mkscale_const(0.0), 0.8 => mkscale_geo(0.0, 5.0)]),
 )
 
 # Generate `2^m` configurations deterministically.
-m = 7
+m = 5
 configs = configurations(Random.Xoshiro(31), hps_vary; m=m)
 
-# If you have UnicodePlots available:
 try
-    using StatsBase
-    using UnicodePlots
+    using CairoMakie
 
-    println("Uniformly sampled tends to clump:")
-    a_ = sample([3, 5, 8, 12, 17, 23], 2^m)
-    b_ = rand(2^m) .* (5.0f-2 - 1.0f-3) .+ 1.0f-3
-    display(UnicodePlots.scatterplot(Float64.(a_), b_))
+    table = Matrix{Real}(undef, length(configs), length(hps_vary))
+    for (idx_name, name) in enumerate(propertynames(hps_vary))
+        table[:, idx_name] .= getproperty.(configs, Ref(name))
+    end
 
-    println("Sobol' sequence more evenly covers space:")
-    a = map(first, configs)
-    b = map(last, configs)
-    display(UnicodePlots.scatterplot(a, b))
+    labels = propertynames(hps_vary)
+    idxs_label = repeat(1:length(labels); inner=length(configs))
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xticks=(1:length(labels), string.(collect(labels))))
+    scatter!(
+        ax,
+        idxs_label .+ randn(length(idxs_label)) .* 0.01,
+        table[:];
+        marker='+',
+    )
+    display(fig)
+
 catch e
     if e isa ArgumentError
-        println("Skipping StatsBase/UnicodePlots stuff")
-        println(configs)
+        @info "CairoMakie not available, skipping plots"
     else
         rethrow()
     end
