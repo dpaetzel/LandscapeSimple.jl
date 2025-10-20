@@ -8,7 +8,6 @@ import Base: ∘
 
 export mkscale_const,
     mkscale_discrete,
-    mkscale_geo,
     mkscale_log,
     mkscale_minmax,
     mkscale_mix,
@@ -113,26 +112,6 @@ function mkscale_discrete(vals::AbstractVector)
     end
     T = promote_type(typeof.(vals)...)
     return TypedScale(T, _scale_discrete)
-end
-
-"""
-Generate a transformation that transforms a number in \$[0, 1]\$ to a geometric
-progression between `xmin` and `xmax` with the given `base`.
-"""
-function mkscale_geo(xmin::T, xmax::T; base=10) where {T<:Real}
-    if xmin < 0
-        @warn "mkscale_geo was used with negative `xmin`, I hope you know " *
-              "what you're doing …"
-    end
-    _scale_geo(x) =
-        if base == 1
-            xmin + x * (xmax - xmin)
-        else
-            xmin + (xmax - xmin) * (base^x - 1) / (base - 1)
-        end
-    # This should work but for now let's just require that types are uniform.
-    # common_type = promote_type(typeof.((1, 1.0, 1.0f0))...)
-    return TypedScale(T, _scale_geo)
 end
 
 """
